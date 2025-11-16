@@ -1,0 +1,33 @@
+[project]
+name = "syllogix"
+version = "0.1.0"
+authors = [
+    {name = "Nathanael Bracy", email = "nate@bracy.dev"},
+]
+maintainers = [
+    {name = "Nathanael Bracy", email = "nate@bracy.dev"},
+]
+description = "agentic syllogistic reasoning"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.14"
+keywords = ["syllogism", "reasoning", "logic", "langchain", "agents"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed"
+]
+
+dependencies = [
+    "langchain>=1.0.7",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.1",
+    "ruff>=0.14.5",
+]
