@@ -46,12 +46,3 @@ if _project_root_str not in _existing_pythonpath.split(os.pathsep):
         os.environ["PYTHONPATH"] = _project_root_str + os.pathsep + _existing_pythonpath
     else:
         os.environ["PYTHONPATH"] = _project_root_str
-
-
-# Optional: provide a simple pytest hook to expose where we've pointed imports.
-def pytest_configure(config) -> None:
-    """
-    Make the project root path visible via the pytest config object for debug
-    purposes (accessible as config._syllogix_project_root).
-    """
-    config._syllogix_project_root = _project_root_str
