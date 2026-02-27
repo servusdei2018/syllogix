@@ -14,7 +14,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 """
 The agents module is responsible for defining and managing intelligent agents.
 """
+
+__all__: list[str] = []

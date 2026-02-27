@@ -1,0 +1,12 @@
+{
+  "include": ["framework", "tests", "main.py"],
+  "exclude": ["**/__pycache__"],
+  "pythonVersion": "3.14",
+  "pythonPlatform": "All",
+  "typeCheckingMode": "strict",
+  "reportMissingTypeStubs": "none",
+  "reportPrivateUsage": "warning",
+  "reportUnnecessaryIsInstance": "warning",
+  "reportMissingSuperCall": "none",
+  "reportCallIssue": "none"
+}

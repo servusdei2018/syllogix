@@ -1,5 +1,5 @@
 # Syllogix
-# Copyright (C) 2025  Nathanael Bracy
+# Copyright (C) 2026  Nathanael Bracy
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
@@ -86,7 +86,7 @@ class ReasoningStep:
     reasoning_type: ReasoningType
 
     # Evidence
-    rag_sources: list[RAGSource] = field(default_factory=list)
+    rag_sources: list[RAGSource] = field(default_factory=list[RAGSource])
 
     # Formalized Logic
     syllogism: Syllogism | None = None
@@ -105,14 +105,14 @@ class ReasoningChain:
     """The complete, final report of the framework's thought process."""
 
     main_query: str
-    steps: list[ReasoningStep] = field(default_factory=list)
+    steps: list[ReasoningStep] = field(default_factory=list[ReasoningStep])
     final_conclusion_summary: str | None = None
 
     def add_step(self, step: ReasoningStep):
         """Adds a new step to the chain."""
         self.steps.append(step)
 
-    def get_proven_premise(self, subject: str) -> Proposition | None:
+    def get_proven_premise(self, subject: str | None) -> Proposition | None:
         """
         Finds a valid conclusion from earlier in the chain to
         use as a new, trusted premise.

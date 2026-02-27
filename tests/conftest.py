@@ -1,5 +1,5 @@
 # Syllogix
-# Copyright (C) 2025  Nathanael Bracy
+# Copyright (C) 2026  Nathanael Bracy
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
@@ -19,11 +19,25 @@
 Pytest configuration.
 """
 
-from __future__ import annotations
-
 import os
 import sys
 from pathlib import Path
+
+import pytest
+
+# pytest-asyncio configuration
+pytest_plugins = ["pytest_asyncio"]
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for the session."""
+    import asyncio
+
+    loop = asyncio.get_event_loop()
+    yield loop
+    loop.close()
+
 
 # Determine the project root as the parent directory of the `tests` directory.
 # Path(__file__).resolve() -> .../syllogix/tests/conftest.py

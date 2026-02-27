@@ -1,5 +1,5 @@
 # Syllogix
-# Copyright (C) 2025  Nathanael Bracy
+# Copyright (C) 2026  Nathanael Bracy
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
@@ -15,5 +15,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-The rag module provides tools and classes for Retrieval-Augmented Generation (RAG) processes to facilitate structured reasoning and evidence gathering from external data sources.
+The rag module provides tools and classes for Retrieval-Augmented Generation (RAG) processes
+to facilitate structured reasoning and evidence gathering from external data sources.
 """
+
+__all__: list[str] = []

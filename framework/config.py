@@ -16,8 +16,11 @@
 
 
 class Config:
-    def __init__(self):
+    """Configuration class for syllogix."""
+
+    def __init__(self) -> None:
+        """Initialize configuration."""
         pass
 
 
-settings = Config()
+settings: Config = Config()

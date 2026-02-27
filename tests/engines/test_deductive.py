@@ -14,11 +14,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 import pytest
 
 from framework.engines.deductive import DeductiveEngine
-from framework.models import Proposition, ReasoningStep, Syllogism
+from framework.models import Proposition, Quantifier, ReasoningStep, Syllogism
 
 
 @pytest.mark.parametrize(
@@ -175,8 +174,13 @@ from framework.models import Proposition, ReasoningStep, Syllogism
     ],
 )
 def test_deductive_engine_recognizes_moods(
-    mood, major, minor, expected_quant, expected_subject, expected_predicate
-):
+    mood: str,
+    major: Proposition,
+    minor: Proposition,
+    expected_quant: Quantifier,
+    expected_subject: str,
+    expected_predicate: str,
+) -> None:
     """
     For each mood, construct a syllogism that matches the mood's structural pattern and verify:
       - The engine marks the step valid

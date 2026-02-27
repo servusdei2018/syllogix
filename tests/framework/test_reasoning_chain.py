@@ -1,5 +1,5 @@
 # Syllogix
-# Copyright (C) 2025  Nathanael Bracy
+# Copyright (C) 2026  Nathanael Bracy
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
@@ -19,6 +19,7 @@ import pytest
 
 from framework.models import (
     Proposition,
+    Quantifier,
     ReasoningChain,
     ReasoningStep,
     Syllogism,
@@ -45,7 +46,11 @@ def test_get_proven_premise_direct_subject_match_returns_conclusion():
     """
     chain = ReasoningChain(main_query="Does this work?")
 
-    concl = Proposition(quantifier="Some", subject="Cats", predicate="Mammals")
+    concl = Proposition(
+        quantifier="Some",
+        subject="Cats",
+        predicate="Mammals",
+    )
     step = _make_step_with_conclusion(1, concl, valid=True)
     chain.add_step(step)
 
@@ -70,14 +75,14 @@ def test_get_proven_premise_direct_subject_match_returns_conclusion():
     ],
 )
 def test_get_proven_premise_predicate_based_conversion_allowed(
-    quant,
-    orig_subject,
-    orig_predicate,
-    query_subject,
-    exp_quant,
-    exp_subject,
-    exp_predicate,
-):
+    quant: Quantifier,
+    orig_subject: str,
+    orig_predicate: str,
+    query_subject: str,
+    exp_quant: Quantifier,
+    exp_subject: str,
+    exp_predicate: str,
+) -> None:
     """
     If a conclusion's predicate matches the requested subject and the quantifier
     permits simple conversion (E or I), get_proven_premise should return a new
@@ -86,7 +91,9 @@ def test_get_proven_premise_predicate_based_conversion_allowed(
     chain = ReasoningChain(main_query="Conversion test")
 
     conclusion = Proposition(
-        quantifier=quant, subject=orig_subject, predicate=orig_predicate
+        quantifier=quant,
+        subject=orig_subject,
+        predicate=orig_predicate,
     )
     step = _make_step_with_conclusion(1, conclusion, valid=True)
     chain.add_step(step)

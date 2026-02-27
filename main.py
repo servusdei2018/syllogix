@@ -17,7 +17,8 @@
 import framework
 
 
-def main():
+def main() -> None:
+    """Main entry point for syllogix."""
     print(f"Hello from syllogix v{framework.__version__}!")
 
 
