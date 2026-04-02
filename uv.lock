@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.14"
 
 [options]
-exclude-newer = "2026-03-26T20:30:36.746226Z"
+exclude-newer = "2026-03-26T20:56:47.824973Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -846,7 +846,7 @@ wheels = [
 [[package]]
 name = "syllogix"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "langchain" },
     { name = "langchain-anthropic" },
