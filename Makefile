@@ -1,4 +1,4 @@
-UV = uv
+UV = uvx
 
 format:
 	$(UV) run ruff format
