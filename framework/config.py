@@ -1,5 +1,5 @@
 # Syllogix
-# Copyright (C) 2025  Nathanael Bracy
+# Copyright (C) 2026  Nathanael Bracy
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
@@ -14,13 +14,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+"""Environment-backed configuration helpers for ``LogicFramework``."""
 
-class Config:
-    """Configuration class for syllogix."""
+from __future__ import annotations
 
-    def __init__(self) -> None:
-        """Initialize configuration."""
-        pass
+from .framework import FrameworkConfig
 
 
-settings: Config = Config()
+def load_framework_config_from_env() -> FrameworkConfig:
+    """Return ``FrameworkConfig`` populated from process environment.
+
+    See ``FrameworkConfig.from_env`` for supported variables.
+    """
+    return FrameworkConfig.from_env()

@@ -20,6 +20,7 @@ from typing import Any
 
 import pytest
 
+from framework.config import load_framework_config_from_env
 from framework.framework import FrameworkConfig, LogicFramework
 from framework.llm import LLMProvider, ProviderConfig
 from framework.schemas import (
@@ -72,6 +73,11 @@ class TestLogicFrameworkInitialization:
         assert framework.config == config
         assert framework.deductive_engine is not None
         assert framework.llm_cache is not None
+
+    def test_raises_when_api_key_missing(self):
+        """ConfigValidator requires an API key at startup."""
+        with pytest.raises(ValueError, match="API key"):
+            LogicFramework(FrameworkConfig())
 
 
 class MockLLMProvider(LLMProvider):
@@ -152,6 +158,111 @@ class TestLogicFrameworkReasoning:
 
         assert isinstance(result, ReasoningChain)
         assert result.main_query == "What is logic?"
+
+    @staticmethod
+    def _empty_evidence_framework(enable_caching: bool) -> LogicFramework:
+        config = FrameworkConfig(api_key="test-key", enable_caching=enable_caching)
+        framework = LogicFramework(config)
+        framework.llm_provider = MockLLMProvider(
+            {
+                "QueryAnalysis": QueryAnalysis(
+                    main_topic="Logic",
+                    reasoning_type="Deductive",
+                    key_terms=["syllogism", "validity"],
+                    expected_answer_format="Boolean",
+                    assumptions=[],
+                ),
+                "EvidenceCollection": EvidenceCollection(
+                    summary="Evidence about logic", evidence_items=[]
+                ),
+                "FinalConclusion": FinalConclusion(
+                    conclusion_text="Test conclusion",
+                    is_valid=True,
+                    confidence=0.9,
+                    reasoning_summary="Test reasoning",
+                ),
+            }
+        )
+        return framework
+
+    @pytest.mark.asyncio
+    async def test_caching_second_run_reuses_llm_cache(self) -> None:
+        """Identical prompts should not call the provider again when caching is on."""
+        fw = self._empty_evidence_framework(enable_caching=True)
+        mock = fw.llm_provider
+        assert isinstance(mock, MockLLMProvider)
+        await fw.reason("What is logic?")
+        first_count = mock.call_count
+        await fw.reason("What is logic?")
+        assert mock.call_count == first_count
+
+    @pytest.mark.asyncio
+    async def test_caching_disabled_calls_provider_each_time(self) -> None:
+        """With caching off, each full reason() issues fresh LLM calls."""
+        fw = self._empty_evidence_framework(enable_caching=False)
+        mock = fw.llm_provider
+        assert isinstance(mock, MockLLMProvider)
+        await fw.reason("What is logic?")
+        first_count = mock.call_count
+        await fw.reason("What is logic?")
+        assert mock.call_count == first_count * 2
+
+
+_ENV_KEYS_TO_CLEAR = (
+    "SYLLOGIX_PROVIDER",
+    "SYLLOGIX_MODEL",
+    "SYLLOGIX_API_KEY",
+    "SYLLOGIX_BASE_URL",
+    "SYLLOGIX_TIMEOUT",
+    "SYLLOGIX_MAX_RETRIES",
+    "SYLLOGIX_ENABLE_CACHING",
+    "SYLLOGIX_CACHE_TTL",
+    "SYLLOGIX_LOG_LEVEL",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GOOGLE_API_KEY",
+    "OPENROUTER_API_KEY",
+)
+
+
+def _clear_syllogix_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key in _ENV_KEYS_TO_CLEAR:
+        monkeypatch.delenv(key, raising=False)
+
+
+class TestFrameworkConfigFromEnv:
+    """Tests for FrameworkConfig.from_env and load_framework_config_from_env."""
+
+    def test_from_env_syllogix_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _clear_syllogix_env(monkeypatch)
+        monkeypatch.setenv("SYLLOGIX_API_KEY", "key-from-syllogix")
+        cfg = FrameworkConfig.from_env()
+        assert cfg.api_key == "key-from-syllogix"
+
+    def test_from_env_openai_api_key_when_generic_unset(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _clear_syllogix_env(monkeypatch)
+        monkeypatch.setenv("SYLLOGIX_PROVIDER", "openai")
+        monkeypatch.setenv("OPENAI_API_KEY", "key-from-openai")
+        cfg = FrameworkConfig.from_env()
+        assert cfg.api_key == "key-from-openai"
+        assert cfg.provider == "openai"
+
+    def test_from_env_model_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _clear_syllogix_env(monkeypatch)
+        monkeypatch.setenv("SYLLOGIX_API_KEY", "x")
+        monkeypatch.setenv("SYLLOGIX_MODEL", "custom-model-id")
+        cfg = FrameworkConfig.from_env()
+        assert cfg.model == "custom-model-id"
+
+    def test_load_framework_config_from_env_alias(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _clear_syllogix_env(monkeypatch)
+        monkeypatch.setenv("SYLLOGIX_API_KEY", "alias-test")
+        cfg = load_framework_config_from_env()
+        assert cfg.api_key == "alias-test"
 
 
 def _evidence_one_fact() -> EvidenceCollection:

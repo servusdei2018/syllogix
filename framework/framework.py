@@ -22,10 +22,14 @@ reasoning process using Pydantic-structured LLM outputs via LangChain.
 
 import asyncio
 import logging
+import os
 from dataclasses import dataclass
+from typing import TypeVar
+
+from pydantic import BaseModel
 
 from .engines.deductive import DeductiveEngine
-from .llm import LLMResponseCache, ProviderConfig, ProviderRegistry
+from .llm import ConfigValidator, LLMResponseCache, ProviderConfig, ProviderRegistry
 from .models import (
     Proposition,
     RAGSource,
@@ -45,6 +49,36 @@ from .schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T", bound=BaseModel)
+
+
+def _parse_env_bool(value: str | None, default: bool) -> bool:
+    if value is None or value == "":
+        return default
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _parse_env_int(value: str | None, default: int) -> int:
+    if value is None or value == "":
+        return default
+    return int(value)
+
+
+def _resolve_api_key_from_env(provider: str) -> str:
+    generic = os.environ.get("SYLLOGIX_API_KEY", "")
+    if generic:
+        return generic
+    env_names = {
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+        "google": "GOOGLE_API_KEY",
+        "openrouter": "OPENROUTER_API_KEY",
+    }
+    key = env_names.get(provider.lower())
+    if key:
+        return os.environ.get(key, "")
+    return ""
 
 
 def _model_proposition_from_schema(prop: SchemaProposition) -> Proposition:
@@ -78,6 +112,43 @@ class FrameworkConfig:
 
     # Logging Configuration
     log_level: str = "INFO"
+
+    @classmethod
+    def from_env(cls) -> FrameworkConfig:
+        """Build configuration from environment variables.
+
+        Variables (all optional unless noted):
+
+        - ``SYLLOGIX_PROVIDER`` — LLM provider id (default ``openai``).
+        - ``SYLLOGIX_MODEL`` — model name (default ``gpt-5.2``).
+        - ``SYLLOGIX_API_KEY`` — API key for any provider (preferred generic).
+        - ``OPENAI_API_KEY``, ``ANTHROPIC_API_KEY``, ``GOOGLE_API_KEY``,
+          ``OPENROUTER_API_KEY`` — used when ``SYLLOGIX_API_KEY`` is unset,
+          according to ``SYLLOGIX_PROVIDER``.
+        - ``SYLLOGIX_BASE_URL`` — optional provider base URL.
+        - ``SYLLOGIX_TIMEOUT``, ``SYLLOGIX_MAX_RETRIES`` — integers.
+        - ``SYLLOGIX_ENABLE_CACHING`` — ``true``/``false``/``1``/``0`` (default true).
+        - ``SYLLOGIX_CACHE_TTL`` — cache TTL seconds (default 3600).
+        - ``SYLLOGIX_LOG_LEVEL`` — logging level name (default ``INFO``).
+
+        ``max_reasoning_steps`` and ``min_confidence_threshold`` use class defaults.
+        """
+        provider = os.environ.get("SYLLOGIX_PROVIDER", "openai")
+        api_key = _resolve_api_key_from_env(provider)
+        base_url_raw = os.environ.get("SYLLOGIX_BASE_URL", "")
+        return cls(
+            provider=provider,
+            model=os.environ.get("SYLLOGIX_MODEL", "gpt-5.2"),
+            api_key=api_key,
+            base_url=base_url_raw if base_url_raw else None,
+            timeout=_parse_env_int(os.environ.get("SYLLOGIX_TIMEOUT"), 30),
+            max_retries=_parse_env_int(os.environ.get("SYLLOGIX_MAX_RETRIES"), 3),
+            enable_caching=_parse_env_bool(
+                os.environ.get("SYLLOGIX_ENABLE_CACHING"), True
+            ),
+            cache_ttl=_parse_env_int(os.environ.get("SYLLOGIX_CACHE_TTL"), 3600),
+            log_level=os.environ.get("SYLLOGIX_LOG_LEVEL", "INFO"),
+        )
 
 
 class LogicFramework:
@@ -115,9 +186,31 @@ class LogicFramework:
             max_retries=self.config.max_retries,
         )
 
+        errors = ConfigValidator.validate_provider_config(provider_config)
+        if errors:
+            raise ValueError("; ".join(errors))
+
         self.llm_provider = ProviderRegistry.create_provider(
             self.config.provider, provider_config
         )
+
+    async def _structured_async(self, prompt: str, output_schema: type[T]) -> T | None:
+        """Structured LLM call with optional response cache."""
+        provider_name = self.llm_provider.get_provider_name()
+        model = self.config.model
+        schema_name = output_schema.__name__
+
+        if self.config.enable_caching:
+            cached = self.llm_cache.get(prompt, provider_name, model, schema_name)
+            if cached is not None:
+                return cached  # type: ignore[return-value]
+
+        result = await self.llm_provider.generate_structured_async(
+            prompt, output_schema
+        )
+        if self.config.enable_caching and result is not None:
+            self.llm_cache.set(prompt, provider_name, model, schema_name, result)
+        return result
 
     async def reason(self, query: str) -> ReasoningChain:
         """Execute the full reasoning chain for a query.
@@ -273,7 +366,7 @@ Query: "{query}"
 
 Provide a structured analysis of the query including the main topic, reasoning type required, key terms, and expected answer format."""
 
-        return await self.llm_provider.generate_structured_async(prompt, QueryAnalysis)
+        return await self._structured_async(prompt, QueryAnalysis)
 
     async def _retrieve_evidence(
         self, query: str, analysis: QueryAnalysis | None
@@ -287,9 +380,7 @@ Topic: {topic}
 
 List specific factual statements that could serve as premises in a logical argument. Rate each fact's relevance and confidence."""
 
-        return await self.llm_provider.generate_structured_async(
-            prompt, EvidenceCollection
-        )
+        return await self._structured_async(prompt, EvidenceCollection)
 
     async def _form_propositions(
         self, query: str, evidence: EvidenceCollection | None
@@ -311,7 +402,7 @@ Evidence:
 
 Convert the evidence into 2-4 logical propositions using standard quantifiers (All, No, Some, Some...not). Specify which propositions should serve as major and minor premises for a syllogism."""
 
-        return await self.llm_provider.generate_structured_async(prompt, PropositionSet)
+        return await self._structured_async(prompt, PropositionSet)
 
     async def _apply_deductive_reasoning(
         self, propositions: PropositionSet
@@ -330,9 +421,7 @@ Minor Premise: {minor.quantifier} {minor.subject} are {minor.predicate}
 
 Determine if these premises form a valid syllogism. If valid, identify the syllogistic mood (e.g., Barbara, Celarent) and state the conclusion. If invalid, explain why."""
 
-        return await self.llm_provider.generate_structured_async(
-            prompt, DeductiveConclusion
-        )
+        return await self._structured_async(prompt, DeductiveConclusion)
 
     async def _generate_conclusion(
         self, query: str, chain: ReasoningChain
@@ -351,9 +440,7 @@ Reasoning Steps:
 
 State the final conclusion, whether it's logically valid, your confidence level, and a brief summary of the reasoning."""
 
-        return await self.llm_provider.generate_structured_async(
-            prompt, FinalConclusion
-        )
+        return await self._structured_async(prompt, FinalConclusion)
 
     def reason_sync(self, query: str) -> ReasoningChain:
         """Synchronous wrapper for reason()."""
