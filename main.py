@@ -24,7 +24,7 @@ from pathlib import Path
 
 from framework import LogicFramework, load_framework_config_from_env
 
-_EPILOG = """Environment (optional unless you call the API; see README.md):
+_EPILOG = """Environments (NOT optional unless you call the API; see README.md):
   SYLLOGIX_PROVIDER, SYLLOGIX_MODEL, SYLLOGIX_API_KEY
   OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, OPENROUTER_API_KEY
   SYLLOGIX_BASE_URL, SYLLOGIX_TIMEOUT, SYLLOGIX_MAX_RETRIES
