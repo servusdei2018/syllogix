@@ -22,7 +22,15 @@ import pytest
 
 from framework.framework import FrameworkConfig, LogicFramework
 from framework.llm import LLMProvider, ProviderConfig
-from framework.schemas import EvidenceCollection, FinalConclusion, QueryAnalysis
+from framework.schemas import (
+    DeductiveConclusion,
+    EvidenceCollection,
+    EvidenceItem,
+    FinalConclusion,
+    Proposition,
+    PropositionSet,
+    QueryAnalysis,
+)
 
 
 class TestFrameworkConfig:
@@ -144,3 +152,155 @@ class TestLogicFrameworkReasoning:
 
         assert isinstance(result, ReasoningChain)
         assert result.main_query == "What is logic?"
+
+
+def _evidence_one_fact() -> EvidenceCollection:
+    return EvidenceCollection(
+        summary="Stub evidence",
+        evidence_items=[
+            EvidenceItem(
+                fact="Premise one.",
+                relevance_score=1.0,
+                confidence="high",
+            ),
+        ],
+    )
+
+
+def _barbara_proposition_set() -> PropositionSet:
+    return PropositionSet(
+        propositions=[
+            Proposition(
+                quantifier="All",
+                subject="M",
+                predicate="P",
+                source_evidence="major",
+            ),
+            Proposition(
+                quantifier="All",
+                subject="S",
+                predicate="M",
+                source_evidence="minor",
+            ),
+        ],
+        major_premise_index=0,
+        minor_premise_index=1,
+    )
+
+
+class TestDeductiveReconciliation:
+    """Symbolic engine is authoritative over LLM structured DeductiveConclusion."""
+
+    @pytest.mark.asyncio
+    async def test_engine_wins_when_llm_structured_output_conflicts(self) -> None:
+        """Barbara premises: engine valid Barbara; LLM says invalid — chain follows engine."""
+        config = FrameworkConfig(api_key="test-key")
+        framework = LogicFramework(config)
+        framework.llm_provider = MockLLMProvider(
+            {
+                "QueryAnalysis": QueryAnalysis(
+                    main_topic="Logic",
+                    reasoning_type="Deductive",
+                    key_terms=["syllogism"],
+                    expected_answer_format="Text",
+                    assumptions=[],
+                ),
+                "EvidenceCollection": _evidence_one_fact(),
+                "PropositionSet": _barbara_proposition_set(),
+                "DeductiveConclusion": DeductiveConclusion(
+                    valid=False,
+                    mood="Celarent",
+                    conclusion_quantifier="Some",
+                    conclusion_subject="X",
+                    conclusion_predicate="Y",
+                    explanation="Structured LLM claims invalid.",
+                ),
+                "FinalConclusion": FinalConclusion(
+                    conclusion_text="Done",
+                    is_valid=True,
+                    confidence=0.5,
+                    reasoning_summary="R",
+                ),
+            }
+        )
+
+        chain = await framework.reason("Barbara test")
+        deductive = next(s for s in chain.steps if s.step_id == 4)
+
+        assert deductive.is_valid is True
+        assert deductive.mood == "Barbara"
+        assert deductive.syllogism is not None
+        assert deductive.syllogism.conclusion is not None
+        assert deductive.syllogism.conclusion.quantifier == "All"
+        assert deductive.syllogism.conclusion.subject == "S"
+        assert deductive.syllogism.conclusion.predicate == "P"
+        assert deductive.confidence == 1.0
+        assert "Structured LLM claims invalid." in deductive.summary
+        assert (
+            "LLM structured assessment differed from symbolic validation."
+            in deductive.summary
+        )
+
+    @pytest.mark.asyncio
+    async def test_engine_invalid_premises_llm_valid_disagreement_note(self) -> None:
+        """No classical mood: engine invalid; LLM valid=True — chain follows engine."""
+        config = FrameworkConfig(api_key="test-key")
+        framework = LogicFramework(config)
+        framework.llm_provider = MockLLMProvider(
+            {
+                "QueryAnalysis": QueryAnalysis(
+                    main_topic="Logic",
+                    reasoning_type="Deductive",
+                    key_terms=["syllogism"],
+                    expected_answer_format="Text",
+                    assumptions=[],
+                ),
+                "EvidenceCollection": _evidence_one_fact(),
+                "PropositionSet": PropositionSet(
+                    propositions=[
+                        Proposition(
+                            quantifier="All",
+                            subject="A",
+                            predicate="B",
+                            source_evidence="a",
+                        ),
+                        Proposition(
+                            quantifier="All",
+                            subject="C",
+                            predicate="D",
+                            source_evidence="b",
+                        ),
+                    ],
+                    major_premise_index=0,
+                    minor_premise_index=1,
+                ),
+                "DeductiveConclusion": DeductiveConclusion(
+                    valid=True,
+                    mood="Barbara",
+                    conclusion_quantifier="All",
+                    conclusion_subject="A",
+                    conclusion_predicate="D",
+                    explanation="LLM thinks this is Barbara.",
+                ),
+                "FinalConclusion": FinalConclusion(
+                    conclusion_text="Done",
+                    is_valid=False,
+                    confidence=0.4,
+                    reasoning_summary="R",
+                ),
+            }
+        )
+
+        chain = await framework.reason("Invalid mix")
+        deductive = next(s for s in chain.steps if s.step_id == 4)
+
+        assert deductive.is_valid is False
+        assert deductive.syllogism is not None
+        assert deductive.syllogism.conclusion is None
+        assert deductive.confidence == 0.0
+        assert "[EngineError:" in deductive.summary
+        assert "LLM thinks this is Barbara." in deductive.summary
+        assert (
+            "LLM structured assessment differed from symbolic validation."
+            in deductive.summary
+        )

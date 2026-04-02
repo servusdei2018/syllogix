@@ -40,8 +40,20 @@ from .schemas import (
     PropositionSet,
     QueryAnalysis,
 )
+from .schemas import (
+    Proposition as SchemaProposition,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _model_proposition_from_schema(prop: SchemaProposition) -> Proposition:
+    """Map schema proposition to domain model with trimmed terms."""
+    return Proposition(
+        quantifier=prop.quantifier,
+        subject=prop.subject.strip(),
+        predicate=prop.predicate.strip(),
+    )
 
 
 @dataclass
@@ -156,22 +168,16 @@ class LogicFramework:
             if propositions and len(propositions.propositions) >= 2:
                 major_prop = propositions.propositions[propositions.major_premise_index]
                 minor_prop = propositions.propositions[propositions.minor_premise_index]
+                major_m = _model_proposition_from_schema(major_prop)
+                minor_m = _model_proposition_from_schema(minor_prop)
 
                 prop_step = ReasoningStep(
                     step_id=3,
                     question="Proposition Formation",
                     reasoning_type="Observation",
                     syllogism=Syllogism(
-                        major_premise=Proposition(
-                            quantifier=major_prop.quantifier,
-                            subject=major_prop.subject,
-                            predicate=major_prop.predicate,
-                        ),
-                        minor_premise=Proposition(
-                            quantifier=minor_prop.quantifier,
-                            subject=minor_prop.subject,
-                            predicate=minor_prop.predicate,
-                        ),
+                        major_premise=major_m,
+                        minor_premise=minor_m,
                         conclusion=None,
                     ),
                     is_valid=True,
@@ -180,38 +186,24 @@ class LogicFramework:
                 )
                 chain.add_step(prop_step)
 
-                # Stage 4: Deductive Reasoning
-                deductive_result = await self._apply_deductive_reasoning(propositions)
-                if deductive_result and prop_step.syllogism:
-                    major = prop_step.syllogism.major_premise
-                    minor = prop_step.syllogism.minor_premise
-
-                    conclusion = None
-                    if (
-                        deductive_result.valid
-                        and deductive_result.conclusion_quantifier
-                    ):
-                        conclusion = Proposition(
-                            quantifier=deductive_result.conclusion_quantifier,
-                            subject=deductive_result.conclusion_subject or "",
-                            predicate=deductive_result.conclusion_predicate or "",
-                        )
-
-                    deductive_step = ReasoningStep(
-                        step_id=4,
-                        question="Deductive Reasoning",
-                        reasoning_type="Deductive",
-                        syllogism=Syllogism(
-                            major_premise=major,
-                            minor_premise=minor,
-                            conclusion=conclusion,
-                        ),
-                        mood=deductive_result.mood,
-                        is_valid=deductive_result.valid,
-                        summary=deductive_result.explanation,
-                        confidence=1.0 if deductive_result.valid else 0.3,
-                    )
-                    chain.add_step(deductive_step)
+                # Stage 4: symbolic engine is authoritative; LLM supplies explanation only
+                engine_input = ReasoningStep(
+                    step_id=0,
+                    question="Deductive Reasoning",
+                    reasoning_type="Deductive",
+                    syllogism=Syllogism(
+                        major_premise=major_m,
+                        minor_premise=minor_m,
+                        conclusion=None,
+                    ),
+                    summary="",
+                )
+                validated = self.deductive_engine.validate(engine_input)
+                llm_deductive = await self._apply_deductive_reasoning(propositions)
+                deductive_step = self._build_deductive_reasoning_step(
+                    validated, llm_deductive
+                )
+                chain.add_step(deductive_step)
 
             # Stage 5: Final Conclusion
             final = await self._generate_conclusion(query, chain)
@@ -243,6 +235,35 @@ class LogicFramework:
             chain.final_conclusion_summary = f"Failed to reach conclusion: {str(e)}"
 
         return chain
+
+    def _build_deductive_reasoning_step(
+        self,
+        validated: ReasoningStep,
+        llm: DeductiveConclusion | None,
+    ) -> ReasoningStep:
+        """Merge symbolic engine result with optional LLM narrative (engine is authoritative)."""
+        summary_parts: list[str] = []
+        base = validated.summary.strip()
+        if base:
+            summary_parts.append(base)
+        if llm and llm.explanation.strip():
+            summary_parts.append(llm.explanation.strip())
+        if llm is not None and llm.valid != validated.is_valid:
+            summary_parts.append(
+                "LLM structured assessment differed from symbolic validation."
+            )
+        merged = "\n\n".join(summary_parts)
+
+        return ReasoningStep(
+            step_id=4,
+            question="Deductive Reasoning",
+            reasoning_type="Deductive",
+            syllogism=validated.syllogism,
+            mood=validated.mood,
+            is_valid=validated.is_valid,
+            summary=merged,
+            confidence=1.0 if validated.is_valid else 0.0,
+        )
 
     async def _analyze_query(self, query: str) -> QueryAnalysis | None:
         """Analyze the query using structured output."""

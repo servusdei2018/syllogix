@@ -22,7 +22,7 @@ pipeline, enabling type-safe LLM interactions via LangChain's structured output.
 
 from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .models import Quantifier
 
@@ -91,6 +91,17 @@ class PropositionSet(BaseModel):
     minor_premise_index: int = Field(
         ge=0, description="Index of the proposition to use as minor premise"
     )
+
+    @model_validator(mode="after")
+    def premise_indices_in_range_and_distinct(self) -> "PropositionSet":
+        n = len(self.propositions)
+        if self.major_premise_index >= n:
+            raise ValueError("major_premise_index must be less than len(propositions)")
+        if self.minor_premise_index >= n:
+            raise ValueError("minor_premise_index must be less than len(propositions)")
+        if self.major_premise_index == self.minor_premise_index:
+            raise ValueError("major_premise_index and minor_premise_index must differ")
+        return self
 
 
 class DeductiveConclusion(BaseModel):
