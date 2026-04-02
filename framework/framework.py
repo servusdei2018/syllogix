@@ -400,7 +400,17 @@ Query: "{query}"
 Evidence:
 {evidence_text}
 
-Convert the evidence into 2-4 logical propositions using standard quantifiers (All, No, Some, Some...not). Specify which propositions should serve as major and minor premises for a syllogism."""
+Convert the evidence into 2-4 logical propositions. Return a JSON object with exactly these fields:
+- "propositions": array of objects, each with:
+  - "quantifier": one of "All", "No", "Some", "Some...not", "Statistical"
+  - "subject": the subject term (string)
+  - "predicate": the predicate term (string)
+  - "source_evidence": the evidence sentence this came from (string)
+- "major_premise_index": integer index (0-based) of the universal/major premise
+- "minor_premise_index": integer index (0-based) of the particular/minor premise
+
+The major premise should be the universal statement (e.g., "All X are Y").
+The minor premise should identify the subject as a member of the major premise category."""
 
         return await self._structured_async(prompt, PropositionSet)
 

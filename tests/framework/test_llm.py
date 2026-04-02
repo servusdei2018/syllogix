@@ -27,6 +27,7 @@ from framework.llm import (
     LLMResponseCache,
     ProviderConfig,
     ProviderRegistry,
+    prompt_for_json_mode,
 )
 
 
@@ -195,3 +196,17 @@ class TestMockProviderStructuredOutput:
         assert result is not None
         assert result.message == "Test response"
         assert result.count == 42
+
+
+class TestJsonModePrompt:
+    """OpenAI json_object requires the word 'json' in the user message."""
+
+    def test_appends_hint_when_absent(self) -> None:
+        raw = "Analyze this syllogism."
+        out = prompt_for_json_mode(raw)
+        assert "json" in out.casefold()
+        assert raw in out
+
+    def test_unchanged_when_json_mentioned(self) -> None:
+        raw = "Return your answer as JSON."
+        assert prompt_for_json_mode(raw) == raw

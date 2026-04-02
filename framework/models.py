@@ -169,19 +169,38 @@ class ReasoningChain:
 
     def __str__(self):
         """Pretty-prints the entire reasoning chain."""
-        report = f"--- Reasoning Chain for: '{self.main_query}' ---\n"
+        sep = "=" * 60
+        thin = "-" * 60
+        report = f"\n{sep}\n  REASONING CHAIN: '{self.main_query}'\n{sep}\n"
+
         for step in self.steps:
-            report += f"\nStep {step.step_id}: {step.question}\n"
-            report += f"  Type: {step.reasoning_type} (Mood: {step.mood})\n"
-            report += f"  Status: {'VALID' if step.is_valid else 'INVALID'} (Conf: {step.confidence * 100}%)\n"
-            if step.syllogism:
-                if step.syllogism.major_premise:
-                    report += f"  Major: {step.syllogism.major_premise}\n"
-                if step.syllogism.minor_premise:
-                    report += f"  Minor: {step.syllogism.minor_premise}\n"
-                if step.syllogism.conclusion:
-                    report += f"  Conclusion: {step.syllogism.conclusion}\n"
+            status = "✓ VALID" if step.is_valid else "✗ INVALID"
+            conf_pct = f"{step.confidence * 100:.1f}%"
+            mood_tag = f"  [{step.mood}]" if step.mood else ""
+            report += f"\n  Step {step.step_id}: {step.question}\n"
+            report += f"  {thin}\n"
+            report += f"  Type      : {step.reasoning_type}{mood_tag}\n"
+            report += f"  Status    : {status}  (confidence: {conf_pct})\n"
+
+            if step.summary:
+                report += f"  Summary   : {step.summary}\n"
+
             if step.rag_sources:
-                report += f"  Evidence: {', '.join([s.source_id for s in step.rag_sources])}\n"
-        report += f"\n--- Final Conclusion ---\n{self.final_conclusion_summary}\n"
+                report += f"  Evidence  : {len(step.rag_sources)} item(s)\n"
+                for src in step.rag_sources:
+                    snippet = src.text[:120].replace("\n", " ") if src.text else ""
+                    url_tag = f"  <{src.url}>" if src.url else ""
+                    report += f"    [{src.source_id}] {snippet}{url_tag}\n"
+
+            if step.syllogism:
+                syl = step.syllogism
+                if syl.major_premise:
+                    report += f"  Major     : {syl.major_premise}\n"
+                if syl.minor_premise:
+                    report += f"  Minor     : {syl.minor_premise}\n"
+                if syl.conclusion:
+                    report += f"  Conclusion: {syl.conclusion}\n"
+
+        report += f"\n{sep}\n  FINAL CONCLUSION\n{sep}\n"
+        report += f"  {self.final_conclusion_summary}\n{sep}\n"
         return report

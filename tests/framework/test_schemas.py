@@ -9,7 +9,13 @@
 import pytest
 from pydantic import ValidationError
 
-from framework.schemas import Proposition, PropositionSet
+from framework.schemas import (
+    EvidenceCollection,
+    FinalConclusion,
+    Proposition,
+    PropositionSet,
+    QueryAnalysis,
+)
 
 
 def _two_props() -> list[Proposition]:
@@ -63,3 +69,81 @@ def test_proposition_set_same_index_rejected():
             major_premise_index=0,
             minor_premise_index=0,
         )
+
+
+def test_query_analysis_accepts_openai_style_json() -> None:
+    payload = {
+        "main_topic": "Socrates",
+        "reasoning_type_required": ["Deductive", "Factual"],
+        "key_terms": [
+            {"term": "Socrates", "role": "Subject", "notes": "philosopher"},
+            "plain",
+        ],
+        "expected_answer_format": {"type": "boolean", "examples": ["Yes"]},
+    }
+    qa = QueryAnalysis.model_validate(payload)
+    assert "Deductive" in qa.reasoning_type
+    assert "Socrates" in qa.key_terms[0]
+    assert "plain" in qa.key_terms[1]
+    assert "boolean" in qa.expected_answer_format
+
+
+def test_evidence_collection_premises_and_numeric_confidence() -> None:
+    ec = EvidenceCollection.model_validate(
+        {
+            "premises": [
+                {
+                    "fact": "All men are mortal.",
+                    "relevance": 0.9,
+                    "confidence": 0.95,
+                }
+            ],
+            "query": "Is Socrates mortal?",
+        }
+    )
+    assert ec.summary
+    assert len(ec.evidence_items) == 1
+    assert ec.evidence_items[0].relevance_score == 0.9
+    assert ec.evidence_items[0].confidence == "high"
+
+
+def test_evidence_item_statement_alias() -> None:
+    ec = EvidenceCollection.model_validate(
+        {
+            "summary": "s",
+            "evidence_items": [
+                {
+                    "statement": "All humans are mortal.",
+                    "relevance": 0.9,
+                    "confidence": 0.8,
+                }
+            ],
+        }
+    )
+    assert ec.evidence_items[0].fact == "All humans are mortal."
+
+
+def test_final_conclusion_alias_fields() -> None:
+    fc = FinalConclusion.model_validate(
+        {
+            "final_conclusion": "Yes.",
+            "logically_valid": True,
+            "confidence": 0.9,
+            "reasoning_summary": "Barbara.",
+        }
+    )
+    assert fc.conclusion_text == "Yes."
+    assert fc.is_valid is True
+
+
+def test_final_conclusion_conclusion_key() -> None:
+    fc = FinalConclusion.model_validate(
+        {
+            "conclusion": "Yes, Socrates is mortal.",
+            "logically_valid": True,
+            "confidence": 0.98,
+            "reasoning_summary": "Syllogism.",
+        }
+    )
+    assert fc.conclusion_text == "Yes, Socrates is mortal."
+    assert fc.is_valid is True

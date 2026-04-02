@@ -36,6 +36,17 @@ from pydantic import BaseModel, SecretStr
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
+# OpenAI requires the substring "json" in the message when using response_format
+# json_object (used by LangChain's json_mode). Append a hint only if absent.
+_JSON_MODE_SUFFIX = "\n\nRespond with a single JSON object matching the schema."
+
+
+def prompt_for_json_mode(prompt: str) -> str:
+    """Ensure *prompt* contains the word ``json`` for OpenAI ``json_object`` mode."""
+    if "json" in prompt.casefold():
+        return prompt
+    return prompt + _JSON_MODE_SUFFIX
+
 
 @dataclass
 class ProviderConfig:
@@ -83,7 +94,7 @@ class LLMProvider(ABC):
             )
 
             # Generate the response
-            result: T = structured_llm.invoke(prompt, **kwargs)
+            result: T = structured_llm.invoke(prompt_for_json_mode(prompt), **kwargs)
             return result
         except Exception as e:
             logger.error(f"Structured generation failed: {e}")
@@ -109,7 +120,9 @@ class LLMProvider(ABC):
             )
 
             # Generate the response
-            result: T = await structured_llm.ainvoke(prompt, **kwargs)
+            result: T = await structured_llm.ainvoke(
+                prompt_for_json_mode(prompt), **kwargs
+            )
             return result
         except Exception as e:
             logger.error(f"Async structured generation failed: {e}")
