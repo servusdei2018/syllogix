@@ -53,7 +53,11 @@ def _parse_quantifier_form(qf: str) -> tuple[str, str, str] | None:
     if m:
         q = m.group(1).capitalize()
         return q, m.group(2).strip(), m.group(3).strip()
-    # Singular  e.g. "S is H"
+    # Singular negative e.g. "S is not P"
+    m = re.match(r"^(.+?)\s+(?:is|are)\s+not\s+(.+)$", qf, re.IGNORECASE)
+    if m:
+        return "No", m.group(1).strip(), m.group(2).strip()
+    # Singular positive e.g. "S is P"
     m = re.match(r"^(.+?)\s+(?:is|are)\s+(.+)$", qf, re.IGNORECASE)
     if m:
         return "All", m.group(1).strip(), m.group(2).strip()
@@ -104,6 +108,21 @@ class QueryAnalysis(BaseModel):
         if not isinstance(data, dict):
             return data
         out = _as_str_key_dict(cast(dict[Any, Any], data))
+
+        # map topic / query -> main_topic
+        if "main_topic" not in out:
+            for alt in ("topic", "query"):
+                if alt in out:
+                    out["main_topic"] = out.pop(alt)
+                    break
+
+        # map implicit_assumptions / context -> assumptions
+        if "assumptions" not in out:
+            for alt in ("implicit_assumptions", "context", "background"):
+                if alt in out:
+                    out["assumptions"] = out.pop(alt)
+                    break
+
         if out.get("reasoning_type") is None and "reasoning_type_required" in out:
             rtr: Any = out.pop("reasoning_type_required")
             out["reasoning_type"] = (
@@ -128,13 +147,13 @@ class EvidenceItem(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     fact: str = Field(
-        validation_alias=AliasChoices("fact", "statement"),
+        validation_alias=AliasChoices("fact", "statement", "text", "premise"),
         description="A factual statement that can serve as a premise",
     )
     relevance_score: float = Field(
         ge=0.0,
         le=1.0,
-        validation_alias=AliasChoices("relevance_score", "relevance"),
+        validation_alias=AliasChoices("relevance_score", "relevance", "score"),
         description="How relevant this fact is to the query (0-1)",
     )
     confidence: str = Field(
@@ -174,8 +193,11 @@ class EvidenceCollection(BaseModel):
         if not isinstance(data, dict):
             return data
         out = _as_str_key_dict(cast(dict[Any, Any], data))
-        if "evidence_items" not in out and "premises" in out:
-            out["evidence_items"] = out.pop("premises")
+        if "evidence_items" not in out:
+            for alt in ("premises", "items", "evidence", "facts"):
+                if alt in out:
+                    out["evidence_items"] = out.pop(alt)
+                    break
         if not out.get("summary"):
             topic_q = str(out.get("topic") or out.get("query") or "").strip()
             out["summary"] = topic_q or "Summary of retrieved evidence."
@@ -354,6 +376,41 @@ class DeductiveConclusion(BaseModel):
         description="Explanation of the reasoning or why it's invalid"
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_llm_variants(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        out = _as_str_key_dict(cast(dict[Any, Any], data))
+
+        # map isValid / is_valid -> valid
+        if "valid" not in out:
+            if "isValid" in out:
+                out["valid"] = out.pop("isValid")
+            elif "is_valid" in out:
+                out["valid"] = out.pop("is_valid")
+
+        # map notes -> explanation
+        if "explanation" not in out:
+            for alt in ("notes", "reasoning", "summary"):
+                if alt in out:
+                    out["explanation"] = out.pop(alt)
+                    break
+
+        # Sometimes conclusion is a string instead of parts
+        if "conclusion" in out and isinstance(out["conclusion"], str):
+            conclusion_str = out.pop("conclusion")
+            if out.get("explanation"):
+                out["explanation"] += (
+                    f"\n[LLM produced conclusion as string: {conclusion_str}]"
+                )
+            else:
+                out["explanation"] = (
+                    f"[LLM produced conclusion as string: {conclusion_str}]"
+                )
+
+        return out
+
 
 class FinalConclusion(BaseModel):
     """The final conclusion of the reasoning process."""
@@ -378,8 +435,11 @@ class FinalConclusion(BaseModel):
                 out["conclusion_text"] = out.pop("final_conclusion")
             elif "conclusion" in out:
                 out["conclusion_text"] = out.pop("conclusion")
-        if "is_valid" not in out and "logically_valid" in out:
-            out["is_valid"] = out.pop("logically_valid")
+        if "is_valid" not in out:
+            for alt in ("logically_valid", "isValid", "valid", "is_logically_valid"):
+                if alt in out:
+                    out["is_valid"] = out.pop(alt)
+                    break
         if "reasoning_summary" not in out:
             for alt in ("summary", "reasoning", "explanation", "rationale"):
                 if alt in out:

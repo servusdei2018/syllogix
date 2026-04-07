@@ -51,12 +51,28 @@ class Proposition:
         None  # e.g., {"type": "percentage", "value": 80}
     )
 
+    def is_singular_subject(self) -> bool:
+        try:
+            from .nlp import is_singular_term
+
+            return is_singular_term(self.subject)
+        except ImportError:
+            return False
+
     def __str__(self):
         if self.quantifier == "Statistical":
             if not self.stat_value:
                 raise ValueError("Statistical propositions must have a stat_value.")
             val = self.stat_value.get("value", "Most")
             return f"{val}% of {self.subject} are {self.predicate}"
+
+        is_singular = self.is_singular_subject()
+
+        if self.quantifier == "All" and is_singular:
+            return f"{self.subject} is {self.predicate}"
+        if self.quantifier == "No" and is_singular:
+            return f"{self.subject} is not {self.predicate}"
+
         if self.quantifier == "Some...not":
             return f"Some {self.subject} are not {self.predicate}"
         return f"{self.quantifier} {self.subject} are {self.predicate}"

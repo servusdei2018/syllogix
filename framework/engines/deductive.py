@@ -77,6 +77,20 @@ class DeductiveEngine:
 
         return normalize_term(term1) == normalize_term(term2)
 
+    def _apply_singular_note(self, step: ReasoningStep):
+        syl = step.syllogism
+        if syl:
+            has_singular = False
+            for prop in [syl.major_premise, syl.minor_premise, syl.conclusion]:
+                if prop and getattr(prop, "is_singular_subject", lambda: False)():
+                    has_singular = True
+                    break
+
+            if has_singular:
+                if step.summary:
+                    step.summary += " "
+                step.summary += "[EngineNote: Singular term treated as Universal class for logical validation]"
+
     def validate(self, step: ReasoningStep) -> ReasoningStep:
         """
         Tries to find a valid deductive mood that matches
@@ -99,6 +113,7 @@ class DeductiveEngine:
                     step.syllogism.conclusion = conclusion
                 step.mood = mood
                 step.confidence = 1.0  # Deductive logic is 100% confident
+                self._apply_singular_note(step)
                 return step
 
         # Second pass: swap major and minor if the first attempt fails
@@ -116,6 +131,7 @@ class DeductiveEngine:
                 if step.summary:
                     step.summary += " "
                 step.summary += "[EngineNote: Premises swapped to form valid syllogism]"
+                self._apply_singular_note(step)
                 return step
 
         step.is_valid = False

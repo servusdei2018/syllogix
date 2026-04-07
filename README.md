@@ -27,49 +27,51 @@ uv run main.py "Is Socrates mortal?"
   ------------------------------------------------------------
   Type      : Observation
   Status    : ✓ VALID  (confidence: 90.0%)
-  Summary   : Topic: Socrates' mortality (a property attribution question about an individual). Type: Deductive reasoning (syllogistic/class-inclusion inference) if premises are provided or assumed, e.g., 'All humans are mortal' and 'Socrates is human'.; Factual/encyclopedic reasoning if treated as a historical-biographical question about the real person Socrates.
+  Summary   : Topic: The mortality status of Socrates. Type: Deductive reasoning (categorical syllogism) if using classical premises; Factual/historical reasoning if answering from historical/biographical knowledge
 
   Step 2: Evidence Retrieval
   ------------------------------------------------------------
   Type      : Observation
   Status    : ✓ VALID  (confidence: 80.0%)
-  Summary   : Socrates' mortality (a property attribution question about an individual)
+  Summary   : The mortality status of Socrates
   Evidence  : 6 item(s)
-    [ev_0] Socrates was a human being (an Athenian man and philosopher who lived in the 5th century BCE).
+    [ev_0] Socrates was a human being (an Athenian man who lived in the 5th century BCE).
     [ev_1] All human beings are mortal (humans eventually die).
-    [ev_2] Ancient sources report that Socrates died in 399 BCE after being sentenced to death in Athens and drinking hemlock.
-    [ev_3] Plato's dialogues (e.g., the 'Phaedo') depict Socrates' execution and death by hemlock as the conclusion of his trial an
-    [ev_4] Xenophon's writings (e.g., 'Apology of Socrates') also describe Socrates being condemned and put to death in Athens.
-    [ev_5] Socrates is treated in historical scholarship as a historical person rather than a mythical immortal figure, and no cred
+    [ev_2] Historical accounts report that Socrates died in Athens in 399 BCE after being sentenced to death.
+    [ev_3] Plato’s dialogues (e.g., 'Apology', 'Crito', and 'Phaedo') depict Socrates being tried, sentenced, and ultimately dying 
+    [ev_4] Xenophon’s writings (e.g., 'Apology of Socrates') also describe Socrates’ trial and death.
+    [ev_5] If an individual has died, then that individual is mortal (death implies mortality).
 
   Step 3: Proposition Formation
   ------------------------------------------------------------
   Type      : Observation
   Status    : ✓ VALID  (confidence: 70.0%)
   Summary   : Formed 4 propositions
-  Major     : All human beings are mortal
-  Minor     : Some Socrates are human being
+  Major     : All human beings are mortal beings
+  Minor     : Socrates is human being
 
   Step 4: Deductive Reasoning
   ------------------------------------------------------------
-  Type      : Deductive
-  Status    : ✗ INVALID  (confidence: 0.0%)
-  Summary   : [EngineError: Premises do not form a valid known syllogism]
+  Type      : Deductive  [Barbara]
+  Status    : ✓ VALID  (confidence: 100.0%)
+  Summary   : [EngineNote: Singular term treated as Universal class for logical validation]
 
-Invalid as stated because the minor premise is malformed: 'Some Socrates are human being' treats 'Socrates' as a class with multiple members (an I-proposition), but in the traditional syllogistic form 'Socrates' is a singular term. Without a coherent minor premise in standard categorical form, no valid syllogism/mood can be identified. If corrected to 'All Socrates are human beings' (or 'Socrates is a human being'), then with the major premise it yields a valid Barbara syllogism with conclusion 'All Socrates are mortal' (or 'Socrates is mortal').
-  Major     : All human beings are mortal
-  Minor     : Some Socrates are human being
+ Form: All M are P (All human beings are mortal beings). All S are M (All Socrates are human being). Therefore, All S are P (All Socrates are mortal beings). This is a valid AAA figure-1 syllogism (Barbara). Note: in ordinary language one would usually say “Socrates is a human being,” but as stated with universal quantifiers it still yields a valid syllogistic form.
+ [LLM produced conclusion as string: All Socrates are mortal beings.]
+  Major     : All human beings are mortal beings
+  Minor     : Socrates is human being
+  Conclusion: Socrates is mortal beings
 
   Step 5: Final Conclusion
   ------------------------------------------------------------
   Type      : Observation
-  Status    : ✓ VALID  (confidence: 90.0%)
-  Summary   : Socrates is mortal.
+  Status    : ✓ VALID  (confidence: 96.0%)
+  Summary   : Yes—Socrates is mortal.
 
 ============================================================
   FINAL CONCLUSION
 ============================================================
-  Socrates is mortal.
+  Yes—Socrates is mortal.
 ============================================================
 ```
 
