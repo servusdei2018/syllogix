@@ -239,7 +239,7 @@ class ProviderRegistry:
         """Get supported models for a provider."""
         models = {
             "openai": [
-                "gpt-5.2",
+                "gpt-5.4-mini",
                 "gpt-5-mini",
             ],
             "anthropic": [

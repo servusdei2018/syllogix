@@ -96,7 +96,7 @@ class FrameworkConfig:
 
     # LLM Provider Configuration
     provider: str = "openai"
-    model: str = "gpt-5.2"
+    model: str = "gpt-5.4-mini"
     api_key: str = ""
     base_url: str | None = None
     timeout: int = 30
@@ -120,7 +120,7 @@ class FrameworkConfig:
         Variables (all optional unless noted):
 
         - ``SYLLOGIX_PROVIDER`` — LLM provider id (default ``openai``).
-        - ``SYLLOGIX_MODEL`` — model name (default ``gpt-5.2``).
+        - ``SYLLOGIX_MODEL`` — model name (default ``gpt-5.4-mini``).
         - ``SYLLOGIX_API_KEY`` — API key for any provider (preferred generic).
         - ``OPENAI_API_KEY``, ``ANTHROPIC_API_KEY``, ``GOOGLE_API_KEY``,
           ``OPENROUTER_API_KEY`` — used when ``SYLLOGIX_API_KEY`` is unset,
@@ -138,7 +138,7 @@ class FrameworkConfig:
         base_url_raw = os.environ.get("SYLLOGIX_BASE_URL", "")
         return cls(
             provider=provider,
-            model=os.environ.get("SYLLOGIX_MODEL", "gpt-5.2"),
+            model=os.environ.get("SYLLOGIX_MODEL", "gpt-5.4-mini"),
             api_key=api_key,
             base_url=base_url_raw if base_url_raw else None,
             timeout=_parse_env_int(os.environ.get("SYLLOGIX_TIMEOUT"), 30),

@@ -41,7 +41,7 @@ class TestFrameworkConfig:
         """Test default configuration values."""
         config = FrameworkConfig()
         assert config.provider == "openai"
-        assert config.model == "gpt-5.2"
+        assert config.model == "gpt-5.4-mini"
         assert config.api_key == ""
         assert config.enable_caching is True
         assert config.max_reasoning_steps == 10

@@ -109,7 +109,7 @@ class TestProviderRegistry:
         """Test getting supported models for providers."""
         models = ProviderRegistry.get_supported_models("openai")
         assert len(models) > 0
-        assert "gpt-5.2" in models
+        assert "gpt-5.4-mini" in models
 
 
 class TestLLMResponseCache:

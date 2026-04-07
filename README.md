@@ -96,7 +96,7 @@ All variables are optional unless you call an LLM API; you must supply an API ke
 | Variable | Role |
 |----------|------|
 | `SYLLOGIX_PROVIDER` | LLM provider id (default `openai`). |
-| `SYLLOGIX_MODEL` | Model name (default `gpt-5.2`). |
+| `SYLLOGIX_MODEL` | Model name (default `gpt-5.4-mini`). |
 | `SYLLOGIX_API_KEY` | API key for any provider (preferred generic). |
 | `OPENAI_API_KEY` | Used when `SYLLOGIX_API_KEY` is unset and provider is OpenAI. |
 | `ANTHROPIC_API_KEY` | Used when provider is Anthropic. |
