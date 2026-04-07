@@ -72,6 +72,11 @@ class DeductiveEngine:
             "Fapesmo": self._validate_fapesmo,  # EAO-4
         }
 
+    def _terms_match(self, term1: str, term2: str) -> bool:
+        from ..nlp import normalize_term
+
+        return normalize_term(term1) == normalize_term(term2)
+
     def validate(self, step: ReasoningStep) -> ReasoningStep:
         """
         Tries to find a valid deductive mood that matches
@@ -85,6 +90,7 @@ class DeductiveEngine:
             step.summary += " [EngineError: Missing one or more premises]"
             return step
 
+        # First pass: normal order
         for mood, validator_func in self.mood_validators.items():
             conclusion = validator_func(major, minor)
             if conclusion:
@@ -93,6 +99,23 @@ class DeductiveEngine:
                     step.syllogism.conclusion = conclusion
                 step.mood = mood
                 step.confidence = 1.0  # Deductive logic is 100% confident
+                return step
+
+        # Second pass: swap major and minor if the first attempt fails
+        for mood, validator_func in self.mood_validators.items():
+            conclusion = validator_func(minor, major)
+            if conclusion:
+                step.is_valid = True
+                if step.syllogism is not None:
+                    # Physically swap them in the syllogism so they print correctly
+                    step.syllogism.major_premise = minor
+                    step.syllogism.minor_premise = major
+                    step.syllogism.conclusion = conclusion
+                step.mood = mood
+                step.confidence = 1.0
+                if step.summary:
+                    step.summary += " "
+                step.summary += "[EngineNote: Premises swapped to form valid syllogism]"
                 return step
 
         step.is_valid = False
@@ -108,7 +131,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "All"
             and minor.quantifier == "All"
-            and major.subject == minor.predicate
+            and self._terms_match(major.subject, minor.predicate)
         ):  # M-P, S-M
             S = minor.subject
             P = major.predicate
@@ -122,7 +145,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "No"
             and minor.quantifier == "All"
-            and major.subject == minor.predicate
+            and self._terms_match(major.subject, minor.predicate)
         ):  # M-P, S-M
             S = minor.subject
             P = major.predicate
@@ -138,7 +161,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "No"
             and minor.quantifier == "All"
-            and major.predicate == minor.predicate
+            and self._terms_match(major.predicate, minor.predicate)
         ):  # P-M, S-M
             S = minor.subject
             P = major.subject
@@ -152,7 +175,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "All"
             and minor.quantifier == "Some"
-            and major.subject == minor.predicate
+            and self._terms_match(major.subject, minor.predicate)
         ):  # M-P, S-M (minor particular)
             S = minor.subject
             P = major.predicate
@@ -166,7 +189,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "No"
             and minor.quantifier == "Some"
-            and major.subject == minor.predicate
+            and self._terms_match(major.subject, minor.predicate)
         ):  # M-P, S-M (minor particular)
             S = minor.subject
             P = major.predicate
@@ -180,7 +203,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "All"
             and minor.quantifier == "No"
-            and major.predicate == minor.predicate
+            and self._terms_match(major.predicate, minor.predicate)
         ):  # P-M, S-M (shared M)
             S = minor.subject
             P = major.subject
@@ -194,7 +217,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "No"
             and minor.quantifier == "Some"
-            and major.predicate == minor.predicate
+            and self._terms_match(major.predicate, minor.predicate)
         ):  # P-M, S-M
             S = minor.subject
             P = major.subject
@@ -208,7 +231,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "All"
             and minor.quantifier == "Some...not"
-            and major.predicate == minor.predicate
+            and self._terms_match(major.predicate, minor.predicate)
         ):  # P-M, S-M (minor particular negative)
             S = minor.subject
             P = major.subject
@@ -224,7 +247,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "All"
             and minor.quantifier == "All"
-            and major.subject == minor.subject
+            and self._terms_match(major.subject, minor.subject)
         ):  # M-P, M-S
             S = minor.predicate  # M are S -> S is minor.predicate
             P = major.predicate
@@ -238,7 +261,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "No"
             and minor.quantifier == "All"
-            and major.subject == minor.subject
+            and self._terms_match(major.subject, minor.subject)
         ):  # M-P, M-S
             S = minor.predicate
             P = major.predicate
@@ -252,7 +275,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "Some"
             and minor.quantifier == "All"
-            and major.subject == minor.subject
+            and self._terms_match(major.subject, minor.subject)
         ):  # Some M are P (particular), All M are S
             S = minor.predicate
             P = major.predicate
@@ -266,7 +289,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "All"
             and minor.quantifier == "Some"
-            and major.subject == minor.subject
+            and self._terms_match(major.subject, minor.subject)
         ):  # All M are P, Some M are S (particular)
             S = minor.predicate
             P = major.predicate
@@ -280,7 +303,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "Some...not"
             and minor.quantifier == "All"
-            and major.subject == minor.subject
+            and self._terms_match(major.subject, minor.subject)
         ):  # Some M are not P, All M are S
             S = minor.predicate
             P = major.predicate
@@ -294,7 +317,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "No"
             and minor.quantifier == "Some"
-            and major.subject == minor.subject
+            and self._terms_match(major.subject, minor.subject)
         ):  # No M are P, Some M are S
             S = minor.predicate
             P = major.predicate
@@ -310,7 +333,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "All"
             and minor.quantifier == "All"
-            and major.predicate == minor.subject
+            and self._terms_match(major.predicate, minor.subject)
         ):  # P-M, M-S
             S = minor.predicate
             P = major.subject
@@ -324,7 +347,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "No"
             and minor.quantifier == "All"
-            and major.predicate == minor.subject
+            and self._terms_match(major.predicate, minor.subject)
         ):  # No P are M, All M are S
             S = minor.predicate
             P = major.subject
@@ -338,7 +361,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "Some"
             and minor.quantifier == "All"
-            and major.predicate == minor.subject
+            and self._terms_match(major.predicate, minor.subject)
         ):  # Some P are M, All M are S
             S = minor.predicate
             P = major.subject
@@ -352,7 +375,7 @@ class DeductiveEngine:
         if (
             major.quantifier == "No"
             and minor.quantifier == "Some"
-            and major.predicate == minor.subject
+            and self._terms_match(major.predicate, minor.subject)
         ):  # No P are M, Some M are S
             S = minor.predicate
             P = major.subject

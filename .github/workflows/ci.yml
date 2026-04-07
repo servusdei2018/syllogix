@@ -19,6 +19,9 @@ jobs:
       - name: Install project
         run: uv sync --locked --all-extras --dev
 
+      - name: Download spacy model
+        run: uv run spacy download en_core_web_sm
+
       - name: Check formatting
         run: uv run ruff format --check
 

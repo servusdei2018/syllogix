@@ -235,6 +235,18 @@ class Proposition(BaseModel):
                 if not out.get("predicate"):
                     out["predicate"] = p
 
+        # Handle Extended Figures: Treat singular propositions as Universal
+        q = out.get("quantifier")
+        s = out.get("subject")
+        if q == "Some" and s:
+            try:
+                from .nlp import is_singular_term
+
+                if is_singular_term(s):
+                    out["quantifier"] = "All"
+            except ImportError:
+                pass
+
         return out
 
 

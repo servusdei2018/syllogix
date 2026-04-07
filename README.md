@@ -15,7 +15,7 @@ Run a query (requires a configured API key for your chosen provider):
 ```bash
 uv run syllogix "Is Socrates mortal?"
 # or
-uv run python main.py "Is Socrates mortal?"
+uv run main.py "Is Socrates mortal?"
 
 # Output:
 
